@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Meta tags para transformar em App de iPhone (PWA) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dota Coach">
+    
+    <title>Dota 2 Strategic Build Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dota: {
+                            bg: '#1e1e24', card: '#2a2a35', cardhover: '#333340',
+                            accent: '#d94f5c', accentHover: '#c54450',
+                            text: '#e2e8f0', muted: '#94a3b8', border: '#3f3f4e'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #1e1e24; color: #e2e8f0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e1e24; }
+        ::-webkit-scrollbar-thumb { background: #3f3f4e; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #d94f5c; }
+        .loader-pulse { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(0.95); } }
+        .tab-active { border-bottom-color: #d94f5c; color: #d94f5c; }
+        .tab-inactive { border-bottom-color: transparent; color: #94a3b8; }
+        .tab-inactive:hover { color: #e2e8f0; border-bottom-color: #3f3f4e; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <nav class="bg-dota-card border-b border-dota-border sticky top-0 z-40">
+        <div class="max-w-5xl mx-auto px-4 md:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-khanda text-xl text-dota-accent"></i>
+                    <span class="font-bold text-white tracking-wide">Dota 2 AI</span>
+                </div>
+                <div class="flex space-x-4 md:space-x-8 h-full">
+                    <button onclick="switchTab('coach')" id="tab-btn-coach" class="tab-active h-full px-1 md:px-2 border-b-2 font-semibold text-xs md:text-sm transition-colors flex items-center gap-1 md:gap-2">
+                        <i class="fa-solid fa-chalkboard-user"></i> Coach
+                    </button>
+                    <button onclick="switchTab('pro')" id="tab-btn-pro" class="tab-inactive h-full px-1 md:px-2 border-b-2 font-semibold text-xs md:text-sm transition-colors flex items-center gap-1 md:gap-2">
+                        <i class="fa-solid fa-trophy"></i> Meta Pro
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl w-full mx-auto flex-grow flex flex-col gap-8 p-4 md:p-8">
+        
+        <!-- VIEW 1: COACH -->
+        <section id="view-coach" class="space-y-8 animate-fade-in block">
+            <header class="text-center space-y-2 mt-4 md:mt-0">
+                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white">Análise de <span class="text-dota-accent">Matchup</span></h1>
+            </header>
+
+            <div class="bg-dota-card p-4 md:p-8 rounded-2xl border border-dota-border shadow-2xl relative overflow-visible">
+                <form id="form-coach" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2 relative">
+                            <label class="block text-sm font-semibold text-dota-text"><i class="fa-solid fa-user-ninja mr-2 text-dota-accent"></i>Seu Herói</label>
+                            <div id="coach-hero-chips" class="mb-2"></div>
+                            <input type="text" id="coach-hero-input" placeholder="Busque seu herói..." autocomplete="off" class="w-full bg-dota-bg border border-dota-border focus:border-dota-accent focus:ring-1 focus:ring-dota-accent rounded-lg p-3 text-white placeholder-gray-600 outline-none">
+                            <div id="coach-hero-dropdown" class="absolute z-50 w-full bg-dota-card border border-dota-border mt-1 rounded-lg shadow-xl max-h-60 overflow-y-auto hidden"></div>
+                        </div>
+                        <div class="space-y-2 relative">
+                            <label class="block text-sm font-semibold text-dota-text"><i class="fa-solid fa-crosshairs mr-2 text-dota-muted"></i>Posição (Role)</label>
+                            <select id="coach-role" required class="w-full bg-dota-bg border border-dota-border focus:border-dota-accent focus:ring-1 focus:ring-dota-accent rounded-lg p-3 text-white outline-none">
+                                <option value="" disabled selected>Selecione...</option>
+                                <option value="Pos 1 (Carry)">Pos 1 (Carry)</option><option value="Pos 2 (Mid)">Pos 2 (Mid)</option>
+                                <option value="Pos 3 (Offlane)">Pos 3 (Offlane)</option><option value="Pos 4 (Soft Support)">Pos 4 (Soft Support)</option>
+                                <option value="Pos 5 (Hard Support)">Pos 5 (Hard Support)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2 relative">
+                            <label class="block text-sm font-semibold text-dota-text flex justify-between"><span><i class="fa-solid fa-shield-halved mr-2 text-green-500"></i>Aliados</span><span id="coach-allies-count" class="text-xs text-dota-muted">0/4</span></label>
+                            <div id="coach-allies-chips" class="flex flex-wrap gap-2 mb-2"></div>
+                            <input type="text" id="coach-allies-input" placeholder="Busque os aliados..." autocomplete="off" class="w-full bg-dota-bg border border-dota-border focus:border-green-500 focus:ring-1 focus:ring-green-500 rounded-lg p-3 text-white placeholder-gray-600 outline-none">
+                            <div id="coach-allies-dropdown" class="absolute z-40 w-full bg-dota-card border border-dota-border mt-1 rounded-lg shadow-xl max-h-60 overflow-y-auto hidden"></div>
+                        </div>
+                        <div class="space-y-2 relative">
+                            <label class="block text-sm font-semibold text-dota-text flex justify-between"><span><i class="fa-solid fa-skull mr-2 text-dota-accent"></i>Inimigos</span><span id="coach-enemies-count" class="text-xs text-dota-muted">0/5</span></label>
+                            <div id="coach-enemies-chips" class="flex flex-wrap gap-2 mb-2"></div>
+                            <input type="text" id="coach-enemies-input" placeholder="Busque os inimigos..." autocomplete="off" class="w-full bg-dota-bg border border-dota-border focus:border-dota-accent focus:ring-1 focus:ring-dota-accent rounded-lg p-3 text-white placeholder-gray-600 outline-none">
+                            <div id="coach-enemies-dropdown" class="absolute z-40 w-full bg-dota-card border border-dota-border mt-1 rounded-lg shadow-xl max-h-60 overflow-y-auto hidden"></div>
+                        </div>
+                    </div>
+                    <div id="coach-error" class="hidden bg-red-900/30 border border-red-500/50 text-red-200 p-4 rounded-lg items-center gap-3"></div>
+                    <button type="submit" id="btn-coach-submit" class="w-full bg-dota-accent hover:bg-dota-accentHover text-white font-bold text-lg py-4 px-6 rounded-lg transition-all duration-200 flex justify-center items-center gap-2 shadow-lg shadow-dota-accent/20">
+                        <i class="fa-solid fa-bolt"></i> Gerar Estratégia de Partida
+                    </button>
+                </form>
+            </div>
+
+            <div id="coach-loading" class="hidden flex-col items-center justify-center py-12 space-y-6">
+                <div class="relative w-20 h-20 flex items-center justify-center loader-pulse">
+                    <i class="fa-brands fa-d-and-d text-6xl text-dota-accent"></i>
+                    <div class="absolute inset-0 rounded-full border-4 border-t-dota-accent border-r-dota-accent border-b-transparent border-l-transparent animate-spin"></div>
+                </div>
+                <p class="text-dota-muted">Calculando linha do tempo da partida...</p>
+            </div>
+
+            <div id="coach-results" class="hidden space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-dota-card p-6 rounded-2xl border border-dota-border"><h3 class="text-xl font-bold text-white mb-3 text-green-500">Micro Game</h3><p id="coach-micro" class="text-sm"></p></div>
+                    <div class="bg-dota-card p-6 rounded-2xl border border-dota-border"><h3 class="text-xl font-bold text-white mb-3 text-blue-400">Macro Game</h3><p id="coach-macro" class="text-sm"></p></div>
+                </div>
+                <div class="bg-dota-card p-6 rounded-2xl border border-dota-border">
+                    <h3 class="text-xl font-bold text-white mb-4 text-yellow-400">Itens Iniciais</h3>
+                    <div id="coach-items-start" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+                </div>
+                <div class="bg-dota-card p-4 md:p-8 rounded-2xl border border-dota-border">
+                    <h2 class="text-2xl font-bold text-white mb-6 text-dota-accent">Sequência de Itens (Prioridade)</h2>
+                    <div id="coach-timeline" class="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-dota-border"></div>
+                </div>
+                <div class="bg-dota-card p-6 rounded-2xl border border-dota-border">
+                    <h3 class="text-xl font-bold text-white mb-4 text-yellow-500">Situacionais</h3>
+                    <div id="coach-items-sit" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- VIEW 2: BUILD PRO -->
+        <section id="view-pro" class="hidden space-y-8 animate-fade-in">
+            <header class="text-center space-y-2 mt-4 md:mt-0">
+                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white">Build <span class="text-dota-accent">Meta Pro</span></h1>
+            </header>
+
+            <div class="bg-dota-card p-4 md:p-8 rounded-2xl border border-dota-border shadow-2xl relative overflow-visible">
+                <form id="form-pro" class="space-y-6">
+                    <div class="max-w-md mx-auto space-y-2 relative">
+                        <label class="block text-sm font-semibold text-dota-text text-center"><i class="fa-solid fa-crown mr-2 text-yellow-400"></i>Escolha o Herói</label>
+                        <div id="pro-hero-chips" class="mb-2 flex justify-center"></div>
+                        <input type="text" id="pro-hero-input" placeholder="Busque o herói..." autocomplete="off" class="w-full bg-dota-bg border border-dota-border focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 rounded-lg p-3 text-white placeholder-gray-600 outline-none text-center">
+                        <div id="pro-hero-dropdown" class="absolute z-50 w-full bg-dota-card border border-dota-border mt-1 rounded-lg shadow-xl max-h-60 overflow-y-auto hidden"></div>
+                    </div>
+                    <div id="pro-error" class="hidden bg-red-900/30 border border-red-500/50 text-red-200 p-4 rounded-lg flex items-center gap-3 max-w-md mx-auto"></div>
+                    <div class="flex justify-center mt-6">
+                        <button type="submit" id="btn-pro-submit" class="w-full max-w-md bg-white hover:bg-gray-200 text-dota-bg font-bold text-lg py-4 px-6 rounded-lg transition-all duration-200 flex justify-center items-center gap-2 shadow-lg shadow-white/10">
+                            <i class="fa-solid fa-book-journal-whills"></i> Ver Guia Profissional
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="pro-loading" class="hidden flex-col items-center justify-center py-12 space-y-6">
+                <div class="relative w-20 h-20 flex items-center justify-center loader-pulse">
+                    <i class="fa-solid fa-gem text-6xl text-yellow-400"></i>
+                    <div class="absolute inset-0 rounded-full border-4 border-t-yellow-400 border-r-yellow-400 border-b-transparent border-l-transparent animate-spin"></div>
+                </div>
+                <p class="text-dota-muted">Pesquisando bancos de dados de campeonatos...</p>
+            </div>
+
+            <div id="pro-results" class="hidden space-y-6">
+                
+                <!-- Fonte dos Dados -->
+                <div class="text-right text-xs text-dota-muted flex items-center justify-end gap-2">
+                    <i class="fa-solid fa-database"></i> Baseado em: <span id="pro-datasource" class="text-dota-text font-semibold"></span>
+                </div>
+
+                <!-- Skill Build -->
+                <div class="bg-gradient-to-r from-dota-card to-dota-bg p-6 rounded-2xl border border-dota-border shadow-xl">
+                    <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2"><i class="fa-solid fa-arrow-up-right-dots text-blue-400"></i> Ordem de Habilidades</h3>
+                    <p id="pro-skills" class="text-dota-text text-sm leading-relaxed bg-dota-bg/50 p-4 rounded-lg border border-dota-border/50"></p>
+                </div>
+
+                <!-- Progressão -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-dota-card p-4 md:p-6 rounded-2xl border border-dota-border flex flex-col">
+                        <h3 class="text-lg font-bold text-white mb-4 border-b border-dota-border pb-2"><i class="fa-solid fa-egg text-green-400 mr-2"></i>Iniciais & Laning</h3>
+                        <div id="pro-items-start" class="space-y-3 flex-grow"></div>
+                    </div>
+                    <div class="bg-dota-card p-4 md:p-6 rounded-2xl border border-dota-border flex flex-col">
+                        <h3 class="text-lg font-bold text-white mb-4 border-b border-dota-border pb-2"><i class="fa-solid fa-meteor text-orange-400 mr-2"></i>Early Game</h3>
+                        <div id="pro-items-early" class="space-y-3 flex-grow"></div>
+                    </div>
+                    <div class="bg-dota-card p-4 md:p-6 rounded-2xl border border-dota-border flex flex-col">
+                        <h3 class="text-lg font-bold text-white mb-4 border-b border-dota-border pb-2"><i class="fa-solid fa-fire text-dota-accent mr-2"></i>Core Items</h3>
+                        <div id="pro-items-core" class="space-y-3 flex-grow"></div>
+                    </div>
+                    <div class="bg-dota-card p-4 md:p-6 rounded-2xl border border-dota-border flex flex-col">
+                        <h3 class="text-lg font-bold text-white mb-4 border-b border-dota-border pb-2"><i class="fa-solid fa-skull-crossbones text-purple-400 mr-2"></i>Late Game</h3>
+                        <div id="pro-items-late" class="space-y-3 flex-grow"></div>
+                    </div>
+                </div>
+
+                <div class="bg-dota-card p-4 md:p-6 rounded-2xl border border-dota-border border-dashed">
+                    <h3 class="text-lg font-bold text-white mb-4"><i class="fa-solid fa-code-branch text-yellow-500 mr-2"></i>Situacionais</h3>
+                    <div id="pro-items-sit" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                </div>
+
+                <!-- TOP 3 BUILDS COMPLETAS -->
+                <div class="mt-8 pt-8 border-t border-dota-border">
+                    <h2 class="text-2xl font-bold text-white mb-6 text-center"><i class="fa-solid fa-medal text-yellow-400 mr-2"></i>Top 3 Builds Finais Fechadas</h2>
+                    <div id="pro-top-builds" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Gerado via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const STATE = { coach: { myHero: null, allies: [], enemies: [] }, pro: { myHero: null } };
+        let heroesDB = []; 
+        const renderers = {};
+
+        function switchTab(tabId) {
+            document.getElementById('view-coach').classList.replace('block', 'hidden');
+            document.getElementById('view-pro').classList.replace('block', 'hidden');
+            document.getElementById(`view-${tabId}`).classList.replace('hidden', 'block');
+            
+            const btnCoach = document.getElementById('tab-btn-coach');
+            const btnPro = document.getElementById('tab-btn-pro');
+            
+            if (tabId === 'coach') {
+                btnCoach.className = "tab-active h-full px-2 border-b-2 font-semibold text-xs md:text-sm transition-colors flex items-center gap-1 md:gap-2";
+                btnPro.className = "tab-inactive h-full px-2 border-b-2 font-semibold text-xs md:text-sm transition-colors flex items-center gap-1 md:gap-2";
+            } else {
+                btnPro.className = "tab-active h-full px-2 border-b-2 font-semibold text-xs md:text-sm transition-colors flex items-center gap-1 md:gap-2";
+                btnCoach.className = "tab-inactive h-full px-2 border-b-2 font-semibold text-xs md:text-sm transition-colors flex items-center gap-1 md:gap-2";
+            }
+        }
+
+        async function fetchHeroesData() {
+            try {
+                const response = await fetch('https://api.opendota.com/api/heroes');
+                const data = await response.json();
+                heroesDB = data.map(hero => ({ name: hero.localized_name, id: hero.name.replace('npc_dota_hero_', '') }));
+                renderers.coachHero = initAutocomplete('coach-hero-input', 'coach-hero-dropdown', 'coach-hero-chips', STATE.coach, 'myHero', 1);
+                renderers.coachAllies = initAutocomplete('coach-allies-input', 'coach-allies-dropdown', 'coach-allies-chips', STATE.coach, 'allies', 4, 'coach-allies-count');
+                renderers.coachEnemies = initAutocomplete('coach-enemies-input', 'coach-enemies-dropdown', 'coach-enemies-chips', STATE.coach, 'enemies', 5, 'coach-enemies-count');
+                renderers.proHero = initAutocomplete('pro-hero-input', 'pro-hero-dropdown', 'pro-hero-chips', STATE.pro, 'myHero', 1);
+            } catch (error) { console.error("Falha na pipeline ETL:", error); }
+        }
+        
+        fetchHeroesData();
+
+        function initAutocomplete(inputId, dropdownId, containerId, stateObj, stateKey, maxSelection, countId = null) {
+            const inputEl = document.getElementById(inputId);
+            const dropdownEl = document.getElementById(dropdownId);
+            const containerEl = document.getElementById(containerId);
+            const countEl = countId ? document.getElementById(countId) : null;
+
+            const render = () => {
+                containerEl.innerHTML = ''; 
+                const itemsToRender = Array.isArray(stateObj[stateKey]) ? stateObj[stateKey] : (stateObj[stateKey] ? [stateObj[stateKey]] : []);
+                
+                itemsToRender.forEach(hero => {
+                    const chip = document.createElement('div');
+                    chip.className = "flex items-center gap-2 bg-dota-border text-sm px-2 py-1 rounded border border-dota-muted/30 shadow-sm";
+                    chip.innerHTML = `<img src="https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/${hero.id}.png" class="w-8 h-4 object-cover rounded"><span class="text-white">${hero.name}</span><button type="button" class="text-dota-muted hover:text-red-500 ml-1 transition-colors remove-btn"><i class="fa-solid fa-xmark"></i></button>`;
+                    
+                    chip.querySelector('.remove-btn').addEventListener('click', () => {
+                        if (Array.isArray(stateObj[stateKey])) stateObj[stateKey] = stateObj[stateKey].filter(h => h.id !== hero.id); 
+                        else stateObj[stateKey] = null;
+                        render(); 
+                    });
+                    containerEl.appendChild(chip);
+                });
+
+                if (maxSelection > 1 && countEl) {
+                    countEl.textContent = `${itemsToRender.length}/${maxSelection}`;
+                    inputEl.disabled = itemsToRender.length >= maxSelection;
+                    inputEl.placeholder = itemsToRender.length >= maxSelection ? "Limite atingido" : `Busque...`;
+                } else {
+                    inputEl.style.display = itemsToRender.length > 0 ? 'none' : 'block';
+                }
+            };
+
+            inputEl.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                dropdownEl.innerHTML = '';
+                if (!term) return dropdownEl.classList.add('hidden');
+
+                const filtered = heroesDB.filter(h => h.name.toLowerCase().includes(term));
+                if (filtered.length > 0) {
+                    dropdownEl.classList.remove('hidden');
+                    filtered.forEach(hero => {
+                        const item = document.createElement('div');
+                        item.className = "p-2 hover:bg-dota-border cursor-pointer flex items-center gap-3 border-b border-dota-border/30";
+                        item.innerHTML = `<img src="https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/${hero.id}.png" class="w-12 h-6 object-cover rounded"><span class="text-white">${hero.name}</span>`;
+                        item.addEventListener('click', () => {
+                            if (maxSelection === 1) stateObj[stateKey] = hero;
+                            else if (!stateObj[stateKey].find(h => h.id === hero.id) && stateObj[stateKey].length < maxSelection) stateObj[stateKey].push(hero);
+                            inputEl.value = ''; dropdownEl.classList.add('hidden'); render();
+                        });
+                        dropdownEl.appendChild(item);
+                    });
+                } else dropdownEl.classList.add('hidden');
+            });
+
+            document.addEventListener('click', (e) => { if (!inputEl.contains(e.target) && !dropdownEl.contains(e.target)) dropdownEl.classList.add('hidden'); });
+            return render;
+        }
+
+        const apiKey = ""; // API Key do Canvas
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        // Sistema robusto de ícones: A CDN às vezes prefere sem "item_", às vezes precisamos sanitizar
+        function getIconUrl(valveId) {
+            const cleanId = valveId.toLowerCase().replace('item_', ''); // Força a remoção do prefixo se a IA errar
+            return `https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/items/${cleanId}.png`;
+        }
+
+        function createItemHTML(item) {
+            return `
+                <div class="flex gap-3 items-start bg-dota-bg/50 p-2 rounded-lg border border-dota-border/50">
+                    <img src="${getIconUrl(item.valve_item_id)}" onerror="this.src='https://placehold.co/85x64/2a2a35/d94f5c?text=Item'" class="w-12 h-9 object-cover rounded border border-dota-border shrink-0 mt-0.5 shadow-md">
+                    <div>
+                        <h4 class="text-white font-semibold text-sm leading-tight">${item.item_name}</h4>
+                        <p class="text-dota-muted text-xs leading-tight mt-1">${item.reason}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- SUBMIT COACH ---
+        document.getElementById('form-coach').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const role = document.getElementById('coach-role').value;
+            if (!STATE.coach.myHero) return document.getElementById('coach-error').innerHTML = "Selecione seu herói.";
+            
+            document.getElementById('coach-error').classList.add('hidden');
+            document.getElementById('coach-results').classList.add('hidden');
+            document.getElementById('coach-loading').classList.replace('hidden', 'flex');
+            document.getElementById('btn-coach-submit').disabled = true;
+
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: `Herói: ${STATE.coach.myHero.name}\nPosição: ${role}\nAliados: ${STATE.coach.allies.map(h=>h.name).join()}\nInimigos: ${STATE.coach.enemies.map(h=>h.name).join()}.` }] }],
+                systemInstruction: { parts: [{ text: "Analise a matchup de Dota 2 e retorne JSON. Micro (dicas mecânicas), Macro (rotações/farm). IMPORTANTE: 'valve_item_id' DEVE ser o ID EXATO interno da Valve, em letras minúsculas, SEM O PREFIXO 'item_'. Exemplos válidos: 'blink', 'black_king_bar', 'phase_boots', 'magic_wand'." }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            micro_game_tips: { type: "STRING" }, macro_game_strategy: { type: "STRING" },
+                            starting_items: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, reason: { type: "STRING" } } } },
+                            exact_item_sequence: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, priority: { type: "NUMBER" }, reason: { type: "STRING" } } } },
+                            situational_items: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, reason: { type: "STRING" } } } }
+                        }
+                    }
+                }
+            };
+
+            try {
+                const req = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await req.json();
+                const data = JSON.parse(res.candidates[0].content.parts[0].text);
+                
+                document.getElementById('coach-micro').textContent = data.micro_game_tips;
+                document.getElementById('coach-macro').textContent = data.macro_game_strategy;
+                
+                document.getElementById('coach-items-start').innerHTML = data.starting_items.map(item => `
+                    <div class="bg-dota-card p-2 rounded-xl border border-dota-border flex flex-col items-center text-center"><img src="${getIconUrl(item.valve_item_id)}" onerror="this.src='https://placehold.co/85x64/2a2a35/d94f5c?text=Item'" class="w-12 h-9 mb-1 shadow-md"><span class="text-xs text-white">${item.item_name}</span></div>
+                `).join('');
+
+                const timeline = data.exact_item_sequence.sort((a,b) => a.priority - b.priority);
+                document.getElementById('coach-timeline').innerHTML = timeline.map(item => `
+                    <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-dota-accent absolute left-0 md:left-1/2 -translate-x-1/2 shrink-0 z-10 text-white font-bold text-xs shadow-lg">${item.priority}</div>
+                        <div class="w-[calc(100%-2.5rem)] md:w-[calc(50%-2rem)] ml-auto md:ml-0 bg-dota-bg p-3 rounded-xl border border-dota-border flex gap-3 shadow-md"><img src="${getIconUrl(item.valve_item_id)}" onerror="this.src='https://placehold.co/85x64/2a2a35/d94f5c?text=I'" class="w-12 h-9 rounded mt-1 shrink-0 border border-dota-border/50"><div><h4 class="text-white font-bold text-sm mb-1">${item.item_name}</h4><p class="text-dota-muted text-xs">${item.reason}</p></div></div>
+                    </div>
+                `).join('');
+
+                document.getElementById('coach-items-sit').innerHTML = data.situational_items.map(createItemHTML).join('');
+                document.getElementById('coach-results').classList.remove('hidden');
+            } catch (err) {
+                document.getElementById('coach-error').innerHTML = "Erro ao conectar com a IA.";
+                document.getElementById('coach-error').classList.remove('hidden');
+            } finally {
+                document.getElementById('coach-loading').classList.replace('flex', 'hidden');
+                document.getElementById('btn-coach-submit').disabled = false;
+            }
+        });
+
+        // --- SUBMIT BUILD PRO ---
+        document.getElementById('form-pro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!STATE.pro.myHero) return document.getElementById('pro-error').innerHTML = "Selecione o herói.";
+            
+            document.getElementById('pro-error').classList.add('hidden');
+            document.getElementById('pro-results').classList.add('hidden');
+            document.getElementById('pro-loading').classList.replace('hidden', 'flex');
+            document.getElementById('btn-pro-submit').disabled = true;
+
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: `Mostre o Meta Pro do herói: ${STATE.pro.myHero.name}` }] }],
+                systemInstruction: { parts: [{ text: "Atue como analista de dados de eSports de Dota 2. Retorne o JSON da build profissional MAIS USADA atualmente. Crie a string 'data_source' ex: 'Dota2ProTracker (Patch Atual)'. IMPORTANTE: 'valve_item_id' DEVE ser o ID interno exato em minúsculas, SEM O PREFIXO 'item_'. (Ex: 'black_king_bar'). Retorne 3 builds finais fechadas com 6 itens em 'top_3_full_builds'." }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            data_source: { type: "STRING" },
+                            starting_items: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, reason: { type: "STRING" } } } },
+                            early_game: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, reason: { type: "STRING" } } } },
+                            core_items: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, reason: { type: "STRING" } } } },
+                            late_game: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, reason: { type: "STRING" } } } },
+                            situational_items: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" }, reason: { type: "STRING" } } } },
+                            skill_build_order: { type: "STRING" },
+                            top_3_full_builds: { type: "ARRAY", items: { type: "OBJECT", properties: { build_name: { type: "STRING" }, items: { type: "ARRAY", items: { type: "OBJECT", properties: { item_name: { type: "STRING" }, valve_item_id: { type: "STRING" } } } } } } }
+                        }
+                    }
+                }
+            };
+
+            try {
+                const req = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await req.json();
+                const data = JSON.parse(res.candidates[0].content.parts[0].text);
+
+                document.getElementById('pro-datasource').textContent = data.data_source || "OpenDota / Pro Tracker";
+                document.getElementById('pro-skills').innerHTML = `<strong>Maximização:</strong> ${data.skill_build_order}`;
+                document.getElementById('pro-items-start').innerHTML = data.starting_items.map(createItemHTML).join('');
+                document.getElementById('pro-items-early').innerHTML = data.early_game.map(createItemHTML).join('');
+                document.getElementById('pro-items-core').innerHTML = data.core_items.map(createItemHTML).join('');
+                document.getElementById('pro-items-late').innerHTML = data.late_game.map(createItemHTML).join('');
+                document.getElementById('pro-items-sit').innerHTML = data.situational_items.map(createItemHTML).join('');
+
+                // Renderizar Top 3 Builds
+                document.getElementById('pro-top-builds').innerHTML = data.top_3_full_builds.map(build => `
+                    <div class="bg-dota-card p-4 rounded-xl border border-dota-border flex flex-col items-center">
+                        <h4 class="text-white font-bold text-sm mb-3 text-center w-full pb-2 border-b border-dota-border/50">${build.build_name}</h4>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${build.items.map(i => `<img src="${getIconUrl(i.valve_item_id)}" title="${i.item_name}" onerror="this.src='https://placehold.co/85x64/2a2a35/d94f5c?text=Item'" class="w-12 h-9 object-cover rounded border border-dota-border shadow-sm">`).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('pro-results').classList.remove('hidden');
+            } catch (err) {
+                document.getElementById('pro-error').innerHTML = "Erro ao buscar dados pro.";
+                document.getElementById('pro-error').classList.remove('hidden');
+            } finally {
+                document.getElementById('pro-loading').classList.replace('flex', 'hidden');
+                document.getElementById('btn-pro-submit').disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
